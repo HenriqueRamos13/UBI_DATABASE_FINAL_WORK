@@ -12,10 +12,11 @@ async function connectDB() {
     }
 }
 
-async function executeQuery(query) {
+async function executeQuery(query, params = []) {
     try {
-        const pool = await connectDB();
-        const result = await pool.request().query(query);
+        const pool = await sql.connect(config);
+        const result = await pool.request()
+            .query(query);
         return result;
     } catch (err) {
         console.error('Erro ao executar query:', err);
@@ -23,7 +24,25 @@ async function executeQuery(query) {
     }
 }
 
+async function executeQueryWithParams(query, params) {
+    try {
+        const pool = await sql.connect(config);
+        let request = pool.request();
+
+        for (const [key, value] of Object.entries(params)) {
+            request = request.input(key, value);
+        }
+
+        const result = await request.query(query);
+        return result;
+    } catch (err) {
+        console.error('Erro ao executar query com parâmetros:', err);
+        throw err;
+    }
+}
+
 module.exports = {
     connectDB,
-    executeQuery
+    executeQuery,
+    executeQueryWithParams
 }; 

@@ -23,11 +23,37 @@ CREATE TABLE dbo.regiao (
     id          UNIQUEIDENTIFIER NOT NULL
                    CONSTRAINT PK_regiao PRIMARY KEY
                    DEFAULT NEWSEQUENTIALID(),
-    nome        VARCHAR(255) NOT NULL
-                   CONSTRAINT CK_regiao_nome 
-                     CHECK (nome IN ('Douro','Alentejo','Dão')),
+    nome VARCHAR(255) NOT NULL
+      CONSTRAINT CK_regiao_nome
+      CHECK (nome IN (
+        'Alenquer',
+        'Alentejo',
+        'Arruda',
+        'Bairrada',
+        'Beira Interior',
+        'Bucelas',
+        'Carcavelos',
+        'Colares',
+        'Dão',
+        'Douro',
+        'Encostas de Aire',
+        'Lagoa',
+        'Lagos',
+        'Madeira',
+        'Madeirense',
+        'Óbidos',
+        'Palmela',
+        'Porto',
+        'Portimão',
+        'Tejo',
+        'Setúbal',
+        'Tavira',
+        'Távora-Varosa',
+        'Torres Vedras',
+        'Trás-os-Montes',
+        'Vinho Verde'
+      )),
     updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at  DATETIME2(3)    NULL
 );
 GO
 
@@ -40,11 +66,11 @@ CREATE TABLE dbo.casta (
                    CONSTRAINT CK_casta_tipo 
                      CHECK (tipo IN ('Tinta','Branca')),
     updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at  DATETIME2(3)    NULL
+
 );
 GO
 
-CREATE TABLE dbo.vinha (
+CREATE TABLE dbo.vinha ( -- VINHEDOS (PODE TER UMA OU VARIAS CASTAS)
     id                    UNIQUEIDENTIFIER NOT NULL
                              CONSTRAINT PK_vinha PRIMARY KEY
                              DEFAULT NEWSEQUENTIALID(),
@@ -63,6 +89,17 @@ CREATE TABLE dbo.vinha (
 );
 GO
 
+CREATE TABLE dbo.vinha_casta (
+    vinhaId     UNIQUEIDENTIFIER NOT NULL,
+    castaId     UNIQUEIDENTIFIER NOT NULL,
+    CONSTRAINT PK_vinha_castas PRIMARY KEY(vinhaId, castaId),
+    CONSTRAINT FK_vinha_castas_vinha 
+      FOREIGN KEY(vinhoId) REFERENCES dbo.vinho(id),
+    CONSTRAINT FK_vinho_castas_casta 
+      FOREIGN KEY(castaId) REFERENCES dbo.casta(id)
+);
+GO
+
 CREATE TABLE dbo.colheita (
     id          UNIQUEIDENTIFIER NOT NULL
                    CONSTRAINT PK_colheita PRIMARY KEY
@@ -76,14 +113,18 @@ CREATE TABLE dbo.colheita (
     qualidade   VARCHAR(50)      NOT NULL
                    CONSTRAINT CK_colheita_qualidade 
                      CHECK (qualidade IN ('Alta','Media','Baixa')),
-    vinhaId     UNIQUEIDENTIFIER NOT NULL,
-    castaId     UNIQUEIDENTIFIER NOT NULL,
     updated_at  DATETIME2(3)     NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at  DATETIME2(3)     NULL,
-    CONSTRAINT FK_colheita_vinha 
-      FOREIGN KEY(vinhaId) REFERENCES dbo.vinha(id),
-    CONSTRAINT FK_colheita_casta 
-      FOREIGN KEY(castaId) REFERENCES dbo.casta(id)
+);
+GO
+
+CREATE TABLE dbo.colheita_vinha (
+    colheitaId UNIQUEIDENTIFIER NOT NULL,
+    vinhaId   UNIQUEIDENTIFIER NOT NULL,
+    CONSTRAINT PK_colheita_vinha PRIMARY KEY(colheitaId, vinhaId),
+    CONSTRAINT FK_colheita_vinha_colheita 
+      FOREIGN KEY(colheitaId) REFERENCES dbo.colheita(id),
+    CONSTRAINT FK_colheita_vinha_vinha 
+      FOREIGN KEY(vinhaId) REFERENCES dbo.vinha(id)
 );
 GO
 
@@ -94,7 +135,7 @@ CREATE TABLE dbo.vinho (
     nome            VARCHAR(255)    NOT NULL,
     tipo            VARCHAR(50)     NOT NULL
                        CONSTRAINT CK_vinho_tipo 
-                         CHECK (tipo IN ('Tinto','Branco','Rosé','Espumante')),
+                         CHECK (tipo IN ('Tinto','Branco','Rosé','Espumante','Doce','Seco','Meio-Seco','Meio-Doce','Licoroso','Fortificado')),
     teor_alcoolico  FLOAT           NOT NULL
                        CONSTRAINT CK_vinho_teor 
                          CHECK (teor_alcoolico BETWEEN 0 AND 100),
@@ -106,18 +147,14 @@ CREATE TABLE dbo.vinho (
 );
 GO
 
-CREATE TABLE dbo.composicaoVinho (
+CREATE TABLE dbo.composicao_vinho_casta (
     vinhoId     UNIQUEIDENTIFIER NOT NULL,
     castaId     UNIQUEIDENTIFIER NOT NULL,
-    percentagem FLOAT           NOT NULL
-                   CONSTRAINT CK_comp_percent 
-                     CHECK (percentagem BETWEEN 0 AND 100),
-    updated_at  DATETIME2(3)     NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at  DATETIME2(3)     NULL,
-    CONSTRAINT PK_composicaoVinho PRIMARY KEY(vinhoId, castaId),
-    CONSTRAINT FK_composicaoVinho_vinho 
+    percentagem FLOAT           NOT NULL,
+    CONSTRAINT PK_composicao_vinho_casta PRIMARY KEY(vinhoId, castaId),
+    CONSTRAINT FK_composicao_vinho_casta_vinho 
       FOREIGN KEY(vinhoId) REFERENCES dbo.vinho(id),
-    CONSTRAINT FK_composicaoVinho_casta 
+    CONSTRAINT FK_composicao_vinho_casta_casta 
       FOREIGN KEY(castaId) REFERENCES dbo.casta(id)
 );
 GO
@@ -130,9 +167,6 @@ CREATE TABLE dbo.lote (
     ano                   INT             NOT NULL
                              CONSTRAINT CK_lote_ano 
                                CHECK (ano >= 1900 AND ano <= YEAR(GETDATE())),
-    quantidade            FLOAT           NOT NULL
-                             CONSTRAINT CK_lote_qt 
-                               CHECK (quantidade >= 0),
     custo                 INT             NOT NULL
                              CONSTRAINT CK_lote_custo 
                                CHECK (custo >= 0),
@@ -141,11 +175,10 @@ CREATE TABLE dbo.lote (
                              CONSTRAINT CK_lote_ng 
                                CHECK (num_garrafas >= 0),
     validade              DATE            NOT NULL,
-    quantidade_disponivel FLOAT           NOT NULL
+    quantidade_disponivel INT           NOT NULL
                              CONSTRAINT CK_lote_disp 
                                CHECK (quantidade_disponivel >= 0),
     updated_at            DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at            DATETIME2(3)    NULL,
     CONSTRAINT FK_lote_vinho 
       FOREIGN KEY(vinhoId) REFERENCES dbo.vinho(id)
 );
@@ -164,7 +197,7 @@ CREATE TABLE dbo.cliente (
     telefone    VARCHAR(100)    NULL,
     morada      VARCHAR(500)    NULL,
     updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at  DATETIME2(3)    NULL
+
 );
 GO
 
@@ -184,7 +217,7 @@ CREATE TABLE dbo.venda (
                    CONSTRAINT CK_venda_tipo 
                      CHECK (tipo IN ('Nacional','Exportação')),
     updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at  DATETIME2(3)    NULL,
+,
     CONSTRAINT FK_venda_cliente 
       FOREIGN KEY(clienteId) REFERENCES dbo.cliente(id)
 );
@@ -202,35 +235,12 @@ CREATE TABLE dbo.detalheVenda (
     preco       INT             NOT NULL
                    CONSTRAINT CK_det_preco 
                      CHECK (preco >= 0),
-    desconto    FLOAT           NOT NULL
-                   CONSTRAINT CK_det_desc 
-                     CHECK (desconto BETWEEN 0 AND 100),
     updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at  DATETIME2(3)    NULL,
+,
     CONSTRAINT FK_detalheVenda_venda 
       FOREIGN KEY(vendaId) REFERENCES dbo.venda(id),
     CONSTRAINT FK_detalheVenda_lote 
       FOREIGN KEY(loteId) REFERENCES dbo.lote(id)
-);
-GO
-
-CREATE TABLE dbo.precoCliente (
-    id            UNIQUEIDENTIFIER NOT NULL
-                     CONSTRAINT PK_precoCliente PRIMARY KEY
-                     DEFAULT NEWSEQUENTIALID(),
-    vinhoId       UNIQUEIDENTIFIER NOT NULL,
-    tipo_cliente  VARCHAR(50)     NOT NULL
-                     CONSTRAINT CK_pc_tipo_cli 
-                       CHECK (tipo_cliente IN ('Particular','Distribuidor','Restaurante')),
-    preco         INT             NOT NULL
-                     CONSTRAINT CK_pc_preco 
-                       CHECK (preco >= 0),
-    data_inicio   DATE            NOT NULL,
-    data_fim      DATE            NULL,
-    updated_at    DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at    DATETIME2(3)    NULL,
-    CONSTRAINT FK_precoCliente_vinho 
-      FOREIGN KEY(vinhoId) REFERENCES dbo.vinho(id)
 );
 GO
 
@@ -244,6 +254,11 @@ CREATE TABLE dbo.utilizador (
                    CONSTRAINT CK_utilizador_perfil 
                      CHECK (perfil IN ('admin','gestor','operador')),
     updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-    deleted_at  DATETIME2(3)    NULL
+
 );
 GO
+
+
+
+
+-- VIEWS

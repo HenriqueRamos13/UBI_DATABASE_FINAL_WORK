@@ -17,19 +17,21 @@ DELETE FROM dbo.utilizador;
 GO
 
 -- Inserir regiões
-INSERT INTO dbo.regiao (nome) VALUES 
-('Douro'),
-('Alentejo'),
-('Dão');
+INSERT INTO dbo.regiao (nome, pais) VALUES 
+('Douro', 'Portugal'),
+('Alentejo', 'Portugal'),
+('Dão', 'Portugal'),
+('Bordeaux', 'França'),
+('Toscana', 'Itália');
 GO
 
 -- Inserir castas
-INSERT INTO dbo.casta (nome, tipo) VALUES 
-('Touriga Nacional', 'Tinta'),
-('Touriga Franca', 'Tinta'),
-('Tinta Roriz', 'Tinta'),
-('Arinto', 'Branca'),
-('Alvarinho', 'Branca');
+INSERT INTO dbo.casta (nome, tipo, caracteristicas) VALUES 
+('Touriga Nacional', 'Tinta', 'Casta nobre portuguesa, aromas intensos'),
+('Touriga Franca', 'Tinta', 'Taninos suaves, boa estrutura'),
+('Tinta Roriz', 'Tinta', 'Adaptável e versátil'),
+('Alvarinho', 'Branca', 'Aromática e mineral'),
+('Encruzado', 'Branca', 'Complexa e elegante');
 GO
 
 -- Obter IDs para uso nas relações
@@ -48,16 +50,15 @@ SELECT @DaoId = id FROM dbo.regiao WHERE nome = 'Dão';
 SELECT @TourigaNacionalId = id FROM dbo.casta WHERE nome = 'Touriga Nacional';
 SELECT @TourigaFrancaId = id FROM dbo.casta WHERE nome = 'Touriga Franca';
 SELECT @TintaRorizId = id FROM dbo.casta WHERE nome = 'Tinta Roriz';
-SELECT @ArintoId = id FROM dbo.casta WHERE nome = 'Arinto';
-SELECT @AlvarinhoId = id FROM dbo.casta WHERE nome = 'Alvarinho';
+SELECT @ArintoId = id FROM dbo.casta WHERE nome = 'Alvarinho';
+SELECT @AlvarinhoId = id FROM dbo.casta WHERE nome = 'Encruzado';
 
 -- Inserir vinhas
-INSERT INTO dbo.vinha (localizacao, area, regiaoId, castaPredominanteId) VALUES 
-('Quinta do Vale, Pinhão', 25.5, @DouroId, @TourigaNacionalId),
-('Herdade dos Grous, Beja', 40.2, @AlentejoId, @TintaRorizId),
-('Quinta da Pellada, Penalva do Castelo', 15.8, @DaoId, @TourigaFrancaId),
-('Quinta das Carvalhas, Régua', 30.0, @DouroId, @TourigaFrancaId),
-('Herdade do Esporão, Reguengos', 35.5, @AlentejoId, @ArintoId);
+INSERT INTO dbo.vinha (propriedade_id, area, ano_plantacao, estado) VALUES 
+(1, 20.5, 1990, 'Ativa'),
+(1, 15.0, 2000, 'Ativa'),
+(2, 30.0, 2010, 'Ativa'),
+(3, 10.0, 2015, 'Ativa');
 GO
 
 -- Obter IDs das vinhas para uso nas colheitas
@@ -72,16 +73,16 @@ DECLARE @TintaRorizId UNIQUEIDENTIFIER;
 DECLARE @ArintoId UNIQUEIDENTIFIER;
 DECLARE @AlvarinhoId UNIQUEIDENTIFIER;
 
-SELECT TOP 1 @VinhaDouro1Id = id FROM dbo.vinha WHERE localizacao LIKE '%Pinhão%';
-SELECT TOP 1 @VinhaAlentejoId = id FROM dbo.vinha WHERE localizacao LIKE '%Beja%';
-SELECT TOP 1 @VinhaDaoId = id FROM dbo.vinha WHERE localizacao LIKE '%Penalva%';
-SELECT TOP 1 @VinhaDouro2Id = id FROM dbo.vinha WHERE localizacao LIKE '%Régua%';
-SELECT TOP 1 @VinhaAlentejo2Id = id FROM dbo.vinha WHERE localizacao LIKE '%Reguengos%';
+SELECT TOP 1 @VinhaDouro1Id = id FROM dbo.vinha WHERE propriedade_id = 1;
+SELECT TOP 1 @VinhaAlentejoId = id FROM dbo.vinha WHERE propriedade_id = 2;
+SELECT TOP 1 @VinhaDaoId = id FROM dbo.vinha WHERE propriedade_id = 3;
+SELECT TOP 1 @VinhaDouro2Id = id FROM dbo.vinha WHERE propriedade_id = 4;
+SELECT TOP 1 @VinhaAlentejo2Id = id FROM dbo.vinha WHERE propriedade_id = 4;
 SELECT @TourigaNacionalId = id FROM dbo.casta WHERE nome = 'Touriga Nacional';
 SELECT @TourigaFrancaId = id FROM dbo.casta WHERE nome = 'Touriga Franca';
 SELECT @TintaRorizId = id FROM dbo.casta WHERE nome = 'Tinta Roriz';
-SELECT @ArintoId = id FROM dbo.casta WHERE nome = 'Arinto';
-SELECT @AlvarinhoId = id FROM dbo.casta WHERE nome = 'Alvarinho';
+SELECT @ArintoId = id FROM dbo.casta WHERE nome = 'Alvarinho';
+SELECT @AlvarinhoId = id FROM dbo.casta WHERE nome = 'Encruzado';
 
 -- Inserir colheitas
 INSERT INTO dbo.colheita (ano, quantidade, qualidade, vinhaId, castaId) VALUES 
@@ -137,8 +138,8 @@ SELECT TOP 1 @VinhoDouroEspumanteId = id FROM dbo.vinho WHERE nome = 'Espumante 
 SELECT @TourigaNacionalId = id FROM dbo.casta WHERE nome = 'Touriga Nacional';
 SELECT @TourigaFrancaId = id FROM dbo.casta WHERE nome = 'Touriga Franca';
 SELECT @TintaRorizId = id FROM dbo.casta WHERE nome = 'Tinta Roriz';
-SELECT @ArintoId = id FROM dbo.casta WHERE nome = 'Arinto';
-SELECT @AlvarinhoId = id FROM dbo.casta WHERE nome = 'Alvarinho';
+SELECT @ArintoId = id FROM dbo.casta WHERE nome = 'Alvarinho';
+SELECT @AlvarinhoId = id FROM dbo.casta WHERE nome = 'Encruzado';
 
 INSERT INTO dbo.composicaoVinho (vinhoId, castaId, percentagem) VALUES 
 (@VinhoDouroTintoId, @TourigaNacionalId, 60),
@@ -178,12 +179,10 @@ INSERT INTO dbo.lote (vinhoId, ano, quantidade, custo, data_engarrafamento, num_
 GO
 
 -- Inserir clientes
-INSERT INTO dbo.cliente (nome, tipo, nif, email, telefone, morada) VALUES 
-('Restaurante Gourmet', 'Restaurante', '509876543', 'contato@restaurantegourmet.pt', '219876543', 'Av. da Liberdade, 123, Lisboa'),
-('Vinhos & Cia Distribuição', 'Distribuidor', '508765432', 'pedidos@vinhoscia.pt', '229876543', 'Rua Industrial, 45, Porto'),
-('Maria Silva', 'Particular', '287654321', 'maria.silva@email.com', '919876543', 'Rua das Flores, 78, Coimbra'),
-('Hotel Panorama', 'Restaurante', '507654321', 'compras@hotelpanorama.pt', '239876543', 'Av. da Praia, 200, Faro'),
-('Global Wines', 'Distribuidor', '506543210', 'encomendas@globalwines.pt', '249876543', 'Zona Industrial, Lote 12, Braga');
+INSERT INTO dbo.cliente (nome, tipo, nif, morada, pais, email, telefone) VALUES 
+('João Silva', 'Nacional', '123456789', 'Rua Principal 123, Porto', 'Portugal', 'joao@email.com', '351123456789'),
+('Wine Imports Ltd', 'Internacional', 'GB123456789', '10 London Street, London', 'Reino Unido', 'contact@wineimports.co.uk', '44123456789'),
+('Vinhos Europa', 'Internacional', 'FR123456789', '15 Rue de Vin, Paris', 'França', 'contact@vinhoseuropa.fr', '33123456789');
 GO
 
 -- Inserir utilizadores
@@ -240,20 +239,17 @@ GO
 DECLARE @RestauranteId UNIQUEIDENTIFIER;
 DECLARE @DistribuidorId UNIQUEIDENTIFIER;
 DECLARE @ParticularId UNIQUEIDENTIFIER;
-DECLARE @HotelId UNIQUEIDENTIFIER;
 DECLARE @GlobalWinesId UNIQUEIDENTIFIER;
 
-SELECT TOP 1 @RestauranteId = id FROM dbo.cliente WHERE nome = 'Restaurante Gourmet';
-SELECT TOP 1 @DistribuidorId = id FROM dbo.cliente WHERE nome = 'Vinhos & Cia Distribuição';
-SELECT TOP 1 @ParticularId = id FROM dbo.cliente WHERE nome = 'Maria Silva';
-SELECT TOP 1 @HotelId = id FROM dbo.cliente WHERE nome = 'Hotel Panorama';
+SELECT TOP 1 @RestauranteId = id FROM dbo.cliente WHERE nome = 'João Silva';
+SELECT TOP 1 @DistribuidorId = id FROM dbo.cliente WHERE nome = 'Wine Imports Ltd';
+SELECT TOP 1 @ParticularId = id FROM dbo.cliente WHERE nome = 'Vinhos Europa';
 SELECT TOP 1 @GlobalWinesId = id FROM dbo.cliente WHERE nome = 'Global Wines';
 
 INSERT INTO dbo.venda (clienteId, data, valor_total, estado, tipo) VALUES 
 (@RestauranteId, '2023-09-15', 13500, 'Entregue', 'Nacional'),
 (@DistribuidorId, '2023-10-20', 48000, 'Entregue', 'Nacional'),
 (@ParticularId, '2023-11-05', 4500, 'Entregue', 'Nacional'),
-(@HotelId, '2023-12-10', 19800, 'Paga', 'Nacional'),
 (@GlobalWinesId, '2024-01-15', 52800, 'Pendente', 'Exportação');
 GO
 
