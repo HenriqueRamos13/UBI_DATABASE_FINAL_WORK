@@ -1,6 +1,21 @@
 USE vinhos;
 GO
 
+DROP TABLE IF EXISTS dbo.detalhe_venda;
+DROP TABLE IF EXISTS dbo.venda;
+DROP TABLE IF EXISTS dbo.lote;
+DROP TABLE IF EXISTS dbo.composicao_vinho_casta;
+DROP TABLE IF EXISTS dbo.vinho;
+DROP TABLE IF EXISTS dbo.colheita_vinha;
+DROP TABLE IF EXISTS dbo.colheita;
+DROP TABLE IF EXISTS dbo.vinha_casta;
+DROP TABLE IF EXISTS dbo.vinha;
+DROP TABLE IF EXISTS dbo.casta;
+DROP TABLE IF EXISTS dbo.regiao;
+DROP TABLE IF EXISTS dbo.cliente;
+DROP TABLE IF EXISTS dbo.utilizador;
+GO
+
 CREATE OR ALTER FUNCTION dbo.GuidToCreatedAt(@g UNIQUEIDENTIFIER)
 RETURNS DATETIME2(3)
 AS
@@ -53,7 +68,7 @@ CREATE TABLE dbo.regiao (
         'Trás-os-Montes',
         'Vinho Verde'
       )),
-    updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
 
@@ -65,19 +80,15 @@ CREATE TABLE dbo.casta (
     tipo        VARCHAR(100)    NOT NULL
                    CONSTRAINT CK_casta_tipo 
                      CHECK (tipo IN ('Tinta','Branca')),
-    updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-
+    updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
 
-CREATE TABLE dbo.vinha ( -- VINHEDOS (PODE TER UMA OU VARIAS CASTAS)
+CREATE TABLE dbo.vinha (
     id                    UNIQUEIDENTIFIER NOT NULL
                              CONSTRAINT PK_vinha PRIMARY KEY
                              DEFAULT NEWSEQUENTIALID(),
     localizacao           VARCHAR(500)      NOT NULL,
-    area                  FLOAT             NOT NULL
-                             CONSTRAINT CK_vinha_area 
-                               CHECK (area > 0),
     regiaoId              UNIQUEIDENTIFIER  NOT NULL,
     castaPredominanteId   UNIQUEIDENTIFIER  NOT NULL,
     updated_at            DATETIME2(3)      NOT NULL DEFAULT SYSUTCDATETIME(),
@@ -92,10 +103,10 @@ GO
 CREATE TABLE dbo.vinha_casta (
     vinhaId     UNIQUEIDENTIFIER NOT NULL,
     castaId     UNIQUEIDENTIFIER NOT NULL,
-    CONSTRAINT PK_vinha_castas PRIMARY KEY(vinhaId, castaId),
-    CONSTRAINT FK_vinha_castas_vinha 
-      FOREIGN KEY(vinhoId) REFERENCES dbo.vinho(id),
-    CONSTRAINT FK_vinho_castas_casta 
+    CONSTRAINT PK_vinha_casta PRIMARY KEY(vinhaId, castaId),
+    CONSTRAINT FK_vinha_casta_vinha 
+      FOREIGN KEY(vinhaId) REFERENCES dbo.vinha(id),
+    CONSTRAINT FK_vinha_casta_casta 
       FOREIGN KEY(castaId) REFERENCES dbo.casta(id)
 );
 GO
@@ -113,7 +124,7 @@ CREATE TABLE dbo.colheita (
     qualidade   VARCHAR(50)      NOT NULL
                    CONSTRAINT CK_colheita_qualidade 
                      CHECK (qualidade IN ('Alta','Media','Baixa')),
-    updated_at  DATETIME2(3)     NOT NULL DEFAULT SYSUTCDATETIME(),
+    updated_at  DATETIME2(3)     NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
 
@@ -196,8 +207,7 @@ CREATE TABLE dbo.cliente (
     email       VARCHAR(255)    NULL,
     telefone    VARCHAR(100)    NULL,
     morada      VARCHAR(500)    NULL,
-    updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-
+    updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
 
@@ -217,15 +227,14 @@ CREATE TABLE dbo.venda (
                    CONSTRAINT CK_venda_tipo 
                      CHECK (tipo IN ('Nacional','Exportação')),
     updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-,
     CONSTRAINT FK_venda_cliente 
       FOREIGN KEY(clienteId) REFERENCES dbo.cliente(id)
 );
 GO
 
-CREATE TABLE dbo.detalheVenda (
+CREATE TABLE dbo.detalhe_venda (
     id          UNIQUEIDENTIFIER NOT NULL
-                   CONSTRAINT PK_detalheVenda PRIMARY KEY
+                   CONSTRAINT PK_detalhe_venda PRIMARY KEY
                    DEFAULT NEWSEQUENTIALID(),
     vendaId     UNIQUEIDENTIFIER NOT NULL,
     loteId      UNIQUEIDENTIFIER NOT NULL,
@@ -236,10 +245,9 @@ CREATE TABLE dbo.detalheVenda (
                    CONSTRAINT CK_det_preco 
                      CHECK (preco >= 0),
     updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-,
-    CONSTRAINT FK_detalheVenda_venda 
+    CONSTRAINT FK_detalhe_venda_venda 
       FOREIGN KEY(vendaId) REFERENCES dbo.venda(id),
-    CONSTRAINT FK_detalheVenda_lote 
+    CONSTRAINT FK_detalhe_venda_lote 
       FOREIGN KEY(loteId) REFERENCES dbo.lote(id)
 );
 GO
@@ -253,8 +261,7 @@ CREATE TABLE dbo.utilizador (
     perfil      VARCHAR(50)     NOT NULL
                    CONSTRAINT CK_utilizador_perfil 
                      CHECK (perfil IN ('admin','gestor','operador')),
-    updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME(),
-
+    updated_at  DATETIME2(3)    NOT NULL DEFAULT SYSUTCDATETIME()
 );
 GO
 
@@ -262,3 +269,78 @@ GO
 
 
 -- VIEWS
+
+CREATE OR ALTER VIEW dbo.v_vinho_detalhado AS
+WITH VinhoCastas AS (
+    SELECT 
+        v.id as vinho_id,
+        STRING_AGG(c.nome + ' (' + CAST(cvc.percentagem as VARCHAR) + '%)', ', ') 
+        WITHIN GROUP (ORDER BY c.nome) as castas
+    FROM dbo.vinho v
+    LEFT JOIN dbo.composicao_vinho_casta cvc ON v.id = cvc.vinhoId
+    LEFT JOIN dbo.casta c ON c.id = cvc.castaId
+    GROUP BY v.id
+),
+VinhaCastas AS (
+    SELECT 
+        vh.id as vinha_id,
+        vh.localizacao,
+        STRING_AGG(c.nome, ', ') WITHIN GROUP (ORDER BY c.nome) as castas_vinha
+    FROM dbo.vinha vh
+    LEFT JOIN dbo.vinha_casta vc ON vh.id = vc.vinhaId
+    LEFT JOIN dbo.casta c ON vc.castaId = c.id
+    GROUP BY vh.id, vh.localizacao
+),
+VinhoVinhas AS (
+    SELECT DISTINCT
+        v.id as vinho_id,
+        STRING_AGG(vc.localizacao + ' (' + vc.castas_vinha + ')', ' | ') 
+        WITHIN GROUP (ORDER BY vc.localizacao) as vinhas_info
+    FROM dbo.vinho v
+    LEFT JOIN dbo.lote l ON v.id = l.vinhoId
+    LEFT JOIN dbo.colheita_vinha cv ON cv.colheitaId = l.id
+    LEFT JOIN VinhaCastas vc ON vc.vinha_id = cv.vinhaId
+    GROUP BY v.id
+),
+VinhoLotes AS (
+    SELECT 
+        v.id as vinho_id,
+        STRING_AGG(
+            'Lote ' + CAST(l.ano as VARCHAR) + 
+            ' (Garrafas: ' + CAST(l.num_garrafas as VARCHAR) + 
+            ', Disponível: ' + CAST(l.quantidade_disponivel as VARCHAR) + 
+            ', Validade: ' + CONVERT(VARCHAR, l.validade, 103) + ')',
+            ' | '
+        ) WITHIN GROUP (ORDER BY l.ano, l.data_engarrafamento) as lotes_info
+    FROM dbo.vinho v
+    LEFT JOIN dbo.lote l ON v.id = l.vinhoId
+    GROUP BY v.id
+),
+VinhoVendas AS (
+    SELECT 
+        v.id as vinho_id,
+        COUNT(DISTINCT dv.vendaId) as total_vendas
+    FROM dbo.vinho v
+    LEFT JOIN dbo.lote l ON v.id = l.vinhoId
+    LEFT JOIN dbo.detalhe_venda dv ON dv.loteId = l.id
+    GROUP BY v.id
+)
+SELECT 
+    v.id,
+    v.nome as nome_vinho,
+    v.tipo as tipo_vinho,
+    v.teor_alcoolico,
+    r.nome as regiao,
+    vc.castas as composicao_castas,
+    vv.vinhas_info as vinhas_e_castas,
+    vl.lotes_info as lotes,
+    vve.total_vendas,
+    v.updated_at as ultima_atualizacao,
+    v.deleted_at as data_remocao
+FROM dbo.vinho v
+LEFT JOIN dbo.regiao r ON v.regiaoId = r.id
+LEFT JOIN VinhoCastas vc ON v.id = vc.vinho_id
+LEFT JOIN VinhoVinhas vv ON v.id = vv.vinho_id
+LEFT JOIN VinhoLotes vl ON v.id = vl.vinho_id
+LEFT JOIN VinhoVendas vve ON v.id = vve.vinho_id;
+GO
