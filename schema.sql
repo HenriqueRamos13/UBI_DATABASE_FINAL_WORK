@@ -341,3 +341,77 @@ LEFT JOIN VinhoVinhas vv ON v.id = vv.vinho_id
 LEFT JOIN VinhoLotes vl ON v.id = vl.vinho_id
 LEFT JOIN VinhoVendas vve ON v.id = vve.vinho_id;
 GO
+
+-- Trigger para controle automático de stock quando há vendas
+
+USE vinhos;
+GO
+
+-- Trigger para controle automático de stock quando há vendas
+-- Este trigger atualiza automaticamente a quantidade disponível do lote
+-- quando um detalhe de venda é inserido, garantindo consistência dos dados
+
+CREATE OR ALTER TRIGGER tr_controle_stock_venda
+ON dbo.detalhe_venda
+AFTER INSERT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    -- Declarar variáveis para controle
+    DECLARE @loteId UNIQUEIDENTIFIER;
+    DECLARE @quantidadeVendida INT;
+    DECLARE @quantidadeDisponivel INT;
+    DECLARE @totalGarrafas INT;
+    
+    -- Cursor para processar múltiplas inserções
+    DECLARE venda_cursor CURSOR FOR
+    SELECT loteId, quantidade
+    FROM inserted;
+    
+    OPEN venda_cursor;
+    FETCH NEXT FROM venda_cursor INTO @loteId, @quantidadeVendida;
+    
+    WHILE @@FETCH_STATUS = 0
+    BEGIN
+        -- Verificar quantidade disponível atual
+        SELECT @quantidadeDisponivel = quantidade_disponivel,
+               @totalGarrafas = num_garrafas
+        FROM dbo.lote
+        WHERE id = @loteId;
+        
+        -- Validar se há stock suficiente
+        IF @quantidadeDisponivel < @quantidadeVendida
+        BEGIN
+            RAISERROR('Stock insuficiente. Disponível: %d, Solicitado: %d', 16, 1, 
+                     @quantidadeDisponivel, @quantidadeVendida);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+        
+        -- Validar se quantidade não fica negativa
+        IF (@quantidadeDisponivel - @quantidadeVendida) < 0
+        BEGIN
+            RAISERROR('Operação resultaria em stock negativo', 16, 1);
+            ROLLBACK TRANSACTION;
+            RETURN;
+        END
+        
+        -- Atualizar quantidade disponível
+        UPDATE dbo.lote
+        SET quantidade_disponivel = quantidade_disponivel - @quantidadeVendida,
+            updated_at = SYSUTCDATETIME()
+        WHERE id = @loteId;
+        
+        -- Log da operação (opcional - para auditoria)
+        PRINT 'Stock atualizado para lote ' + CAST(@loteId AS VARCHAR(36)) + 
+              '. Quantidade vendida: ' + CAST(@quantidadeVendida AS VARCHAR(10)) + 
+              '. Nova quantidade disponível: ' + CAST((@quantidadeDisponivel - @quantidadeVendida) AS VARCHAR(10));
+        
+        FETCH NEXT FROM venda_cursor INTO @loteId, @quantidadeVendida;
+    END
+    
+    CLOSE venda_cursor;
+    DEALLOCATE venda_cursor;
+END;
+GO
