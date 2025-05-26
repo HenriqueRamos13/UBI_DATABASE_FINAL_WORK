@@ -265,9 +265,6 @@ CREATE TABLE dbo.utilizador (
 );
 GO
 
-
-
-
 -- VIEWS
 
 CREATE OR ALTER VIEW dbo.v_vinho_detalhado AS
